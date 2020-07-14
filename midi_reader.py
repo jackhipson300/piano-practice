@@ -12,6 +12,9 @@ def get_note(data):
     note = NOTES[pitch % 12]
     return note
 
+def get_velocity(data):
+    return data[0][0][2]
+
 def record_sequence():
     sequence = []
     note = ""
@@ -27,6 +30,7 @@ def record_sequence():
 
 def playback_sequence(sequence):
     attemptedSequence = []
+    velocities = []
     
     count = 0
     for note in sequence:
@@ -36,16 +40,18 @@ def playback_sequence(sequence):
             if(len(data) > 0 and data[0][0][0] == 144):
                 attemptedNote = get_note(data)
                 attemptedSequence.append(attemptedNote)
+                
+                velocity = get_velocity(data)
+                velocities.append(velocity)
+                
                 if(attemptedNote != note):
                     count += 1
                 invalidData = False
 
     print(count, "missed notes")
-    print("Original:")
-    print(sequence)
-    print("Attempted:")
-    print(attemptedSequence)
-        
+    print("Original:\n", sequence)
+    print("Attempted:\n", attemptedSequence)
+    print("Velocities:\n", velocities)
 
 sequence = []
 while(True):
