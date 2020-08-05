@@ -1,4 +1,5 @@
 import pygame.midi
+import threading
 
 MAX_NOTES_PER_RECORDING = 176
 MIN_TIME_BETWEEN_NOTES = 50
@@ -9,23 +10,52 @@ input_id = pygame.midi.get_default_input_id()
 
 midi_input = pygame.midi.Input(input_id)
 
-def get_note(data):
-    pitch = data[0][0][1]
-    note = NOTES[pitch % 12]
-    return note
+class MidiParser:
+    @staticmethod
+    def get_note(data):
+        pitch = data[0][0][1]
+        note = NOTES[pitch % 12]
+        return note
 
+    @staticmethod
+    def get_velocity(data):
+        return data[0][0][2]
 
-def get_velocity(data):
-    return data[0][0][2]
+    @staticmethod
+    def get_time(data):
+        return data[0][1]
+    
 
+class Recorder:
+    recording = False
+    notes = []
 
-def get_time(data):
-    return data[0][1]
+    def record_sequence(self, max_notes):
+        note = ""
+        while(self.recording and len(self.notes) < max_notes):
+            data = midi_input.read(64)
+            if(len(data) > 0 and data[0][0][0] == 144):
+                note = MidiParser.get_note(data)
+                time = MidiParser.get_time(data)
+                velocity = MidiParser.get_velocity(data)
+                self.notes.append((note, time, velocity))
+                
+        if(self.recording):
+            self.stop_recording()
+
+    def start_recording(self, max_notes):
+        self.recording = True
+        self.notes = []
+        recording_thread = threading.Thread(target=self.record_sequence, args=(max_notes,))
+        recording_thread.start()
+
+    def stop_recording(self):
+        self.recording = False
 
 
 def detect_chords(notes):
     sequence = []
-
+    
     chord = []
     chord_velocities = []
     i = 0
@@ -52,25 +82,7 @@ def detect_chords(notes):
 
     sequence.append((chord, chord_velocities))
     return sequence
-
-
-def record_sequence(max_notes):
-    notes = []
-    sequence = []
-    note = ""
-    while(len(notes) < max_notes):
-        data = midi_input.read(64)
-        if(len(data) > 0 and data[0][0][0] == 144):
-            note = get_note(data)
-            time = get_time(data)
-            velocity = get_velocity(data)
-            if(note == "D♭"):
-                break
-            notes.append((note, time, velocity))
-
-    sequence = detect_chords(notes)
-    return sequence
-
+  
 
 def get_missed_notes(original, attempted):
     missed_notes = 0
@@ -87,6 +99,7 @@ def get_missed_notes(original, attempted):
 
 
 def print_playback_results(original, attempted):
+    print("\nResults:")
     print(get_missed_notes(original, attempted), "missed notes")
     print("Original:")
     for note in original:
@@ -99,27 +112,46 @@ def print_playback_results(original, attempted):
     print("\nVelocities:")
     for note in attempted:
         print(note[1], end=" ")
-    print()
+    print("\n")
 
 
-def playback_sequence(sequence):
+def record_sequence(recorder):
+    recorder.start_recording(MAX_NOTES_PER_RECORDING)
+    input("Recording started press enter to stop")
+    recorder.stop_recording()
+    return recorder.notes
+
+
+def playback_sequence(recorder, sequence):
     max_notes = sum(len(i[0]) for i in sequence)
-    attempted_sequence = record_sequence(max_notes)
+    recorder.start_recording(max_notes)
+    print("Start playing")
+    while(recorder.recording):
+        pass
+    attempted_sequence = detect_chords(recorder.notes)
     print_playback_results(sequence, attempted_sequence)
 
 
-sequence = []
-while(True):
-    command = input("Enter a command: ")
-    if(command == "record"):
-        sequence = record_sequence(MAX_NOTES_PER_RECORDING)
-    elif(command == "playback"):
-        if(len(sequence) == 0):
-            print("No sequence recorded")
-        else:
-            playback_sequence(sequence)
-    elif(command == "exit"):
-        break
+def main_loop():
+    recorder = Recorder()
+    sequence = []
+
+    running = True
+    while(running):
+        command = input("Enter a command: ")
+        if(command == "record"):
+            sequence = record_sequence(recorder)
+            sequence = detect_chords(sequence)
+        elif(command == "playback"):
+            if(len(sequence) == 0):
+                print("No sequence recorded")
+            else:
+                playback_sequence(recorder, sequence)
+        elif(command == "exit"):
+            running = False
+
+
+main_loop()
 
 midi_input.close()
 
