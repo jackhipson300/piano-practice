@@ -82,7 +82,7 @@ def detect_chords(notes):
 
     sequence.append((chord, chord_velocities))
     return sequence
-
+  
 
 def get_missed_notes(original, attempted):
     missed_notes = 0
