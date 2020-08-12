@@ -4,6 +4,10 @@ from note import Note
 MAX_NOTES_PER_RECORDING = 176
 MIN_TIME_BETWEEN_NOTES = 50
 
+def get_sequence_length(chords):
+    return sum(len(chord) for chord in chords)
+
+
 def detect_chords(notes):
     chords = []
     
@@ -33,7 +37,8 @@ def detect_chords(notes):
 
 def get_missed_notes(original, attempted):
     missed_notes = 0
-    for i in range(len(original)):
+    
+    for i in range(min(len(original), len(attempted))):
         original_chord = original[i]
         attempted_chord = attempted[i]
         
@@ -43,6 +48,9 @@ def get_missed_notes(original, attempted):
         missed_notes += sum(attempted_chord[j].value != original_chord[j].value \
                             for j in range(min_length))
           
+    original_len = get_sequence_length(original)
+    attemped_len = get_sequence_length(attempted)
+    missed_notes += abs(original_len - attemped_len)
     return missed_notes
 
 
@@ -64,10 +72,10 @@ def print_playback_results(original, attempted):
     print("\nResults:")
     print(get_missed_notes(original, attempted), "missed notes")
 
-    print("Original:")
+    print("Original:", get_sequence_length(original))
     print_chords(original)
         
-    print("\nAttempted:")
+    print("\nAttempted:", get_sequence_length(attempted))
     print_chords(attempted)
 
     print("\nVelocities:")
@@ -83,7 +91,7 @@ def record_sequence(recorder):
 
 
 def playback_sequence(recorder, sequence):
-    max_notes = sum(len(chord) for chord in sequence)
+    max_notes = get_sequence_length(sequence)
     recorder.start_recording(max_notes)
     print("Start playing")
     while(recorder.recording):
@@ -108,11 +116,8 @@ def main_loop():
             else:
                 playback_sequence(recorder, sequence)
         elif(command == "exit"):
+            recorder.shutdown()
             running = False
 
 
 main_loop()
-
-midi_input.close()
-
-pygame.midi.quit()

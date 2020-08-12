@@ -29,3 +29,7 @@ class Recorder:
 
     def stop_recording(self):
         self.recording = False
+
+    def shutdown(self):
+        midi_input.close()
+        pygame.midi.quit()
